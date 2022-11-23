@@ -31,11 +31,21 @@ Another thing we tried is the Optical Character Recognition (OCR). The OCR is he
 
 ## Model Training
 
-After the map image and segmentation label is patchified to (256*256) images, the legend image is also cutted from the map image given the coordinates in the json file and resize to 256*256, then we build a model that can use the map patch image & legend image as input, the segmentation label as output. We use a similar model architecture in a reference cited here (A Variational U-Net for Conditional Appearance and Shape Generation). 
+After the map image and segmentation label is patchified to (256X256) images, the legend image is also cutted from the map image given the coordinates in the json file and resize to 256X256, then we build a model that can use the map patch image & legend image as input, the segmentation label as output. We use a similar model architecture in a reference cited here (A Variational U-Net for Conditional Appearance and Shape Generation). 
 
 ## Model Inference 
+The model inference is conducted with patch image and then re-stitch them back into a whole image. Here we randomly plot some examples of how the patches perform. From these plot we can see the model is really capable, each small regions with complex geometries can be well captured. 
+
+![alt text](./images/poly_performance_1.png)
+
+![alt text](./images/poly_performance_2.png)
+
+The model is doing less satisfying for points & line features. One reason we believe is the data imbalance in points & lines. For example, the points has 256X256=65536 pixels for each image, but only one a several pixels are 1's, while other pixels are all zeros. This can be extremely challenge to segment. One thing we can try in the future is to use smaller patches (like 64X64 or 32X32) instead of 256X256. Another thing to try is some attention-based model. Given more time, we'll spend more efforts on points and lines. Especially for points, one member in our team is exploring YOLO with synthetic data, this can potentially extract points feature very accurately.  
 
 ## Performance measure
+The performance is evaluated by a customized F-1 score given in this competition. (see metrics.py) In general, our model performs relatively well on polygons, but less satisfying on points and lines. We also find the cases where polygon fails to predict when using this model 1) Closed-color legends that are non-differentiable, 2) 2) Mismatched map/legend color. In the future, to tackle these two drawbacks, we can apply our OCR algorithm and a discriminor to automatically detect "bad legend" and replace with the ones that cut directly from maps.  
+
+
 
 
 
