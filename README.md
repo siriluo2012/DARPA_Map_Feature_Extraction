@@ -29,6 +29,13 @@ Another thing we tried is the Optical Character Recognition (OCR). The OCR is he
 
 ![alt text](./images/OCR.png)
 
+## Model Training
+
+After the map image and segmentation label is patchified to (256*256) images, the legend image is also cutted from the map image given the coordinates in the json file and resize to 256*256, then we build a model that can use the map patch image & legend image as input, the segmentation label as output. We use a similar model architecture in a reference cited here (A Variational U-Net for Conditional Appearance and Shape Generation). 
+
+## Model Inference 
+
+## Performance measure
 
 
 
