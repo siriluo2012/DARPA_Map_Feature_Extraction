@@ -22,37 +22,41 @@ from tensorflow.keras.losses import binary_crossentropy
 from keras.preprocessing.image import ImageDataGenerator
 
 
-data_augmentation = tf.keras.Sequential([layers.RandomRotation(0.2)]) # layers.RandomFlip("horizontal_and_vertical"),
 def load_train_img(filename):
+    
+    # filename = ('CO_Boulder_1978_Ysp_poly_18_7.png', 'CO_Boulder_1978_Ysp_poly.png')
 
-    mapName = '/home/shared/DARPA/all_patched_data/training/point/map_patches/'+filename[0]
-    legendName = '/home/shared/DARPA/all_patched_data/training/point/legend_converted/'+filename[1] 
+    mapName = '/home/shared/DARPA/all_patched_data/training/poly/map_patches/'+filename[0]
+    legendName = '/home/shared/DARPA/all_patched_data/training/poly/legend/'+filename[1] 
 
     map_img = tf.io.read_file(mapName) # Read image file
     map_img = tf.cast(tf.io.decode_png(map_img), dtype=tf.float32) / 255.0
 
     legend_img = tf.io.read_file(legendName) # Read image file
     legend_img = tf.cast(tf.io.decode_png(legend_img), dtype=tf.float32) / 255.0
-    legend_img = data_augmentation(legend_img)
     
     map_img = tf.concat(axis=2, values = [map_img, legend_img])
+    map_img = data_augmentation(map_img)
     
     map_img = map_img*2.0 - 1.0 # range(-1.0,1.0)
     map_img = tf.image.resize(map_img, [256, 256])
     
-    segName = '/home/shared/DARPA/all_patched_data/training/point/seg_patches_converted/'+filename[0]  
+    segName = '/home/shared/DARPA/all_patched_data/training/poly/seg_patches/'+filename[0]  
     
     legend_img = tf.io.read_file(segName) # Read image file
     legend_img = tf.io.decode_png(legend_img)
-    legend_img = tf.cast(legend_img, dtype=tf.float32) / 255.0
     legend_img = tf.image.resize(legend_img, [256, 256])
     
     return map_img, legend_img
+
+# img, seg = load_img(('CO_Boulder_1978_Ysp_poly_18_7.png', 'CO_Boulder_1978_Ysp_poly.png'))
 
 def load_validation_img(filename):
+    
+    # filename = ('CO_Boulder_1978_Ysp_poly_18_7.png', 'CO_Boulder_1978_Ysp_poly.png')
 
-    mapName = '/home/shared/DARPA/all_patched_data/validation/point/map_patches/'+filename[0]
-    legendName = '/home/shared/DARPA/all_patched_data/validation/point/legend_converted/'+filename[1] 
+    mapName = '/home/shared/DARPA/all_patched_data/validation/poly/map_patches/'+filename[0]
+    legendName = '/home/shared/DARPA/all_patched_data/validation/poly/legend/'+filename[1] 
 
     map_img = tf.io.read_file(mapName) # Read image file
     map_img = tf.cast(tf.io.decode_png(map_img), dtype=tf.float32) / 255.0
@@ -61,32 +65,32 @@ def load_validation_img(filename):
     legend_img = tf.cast(tf.io.decode_png(legend_img), dtype=tf.float32) / 255.0
     
     map_img = tf.concat(axis=2, values = [map_img, legend_img])
-    
     map_img = map_img*2.0 - 1.0 # range(-1.0,1.0)
     map_img = tf.image.resize(map_img, [256, 256])
     
-    segName = '/home/shared/DARPA/all_patched_data/validation/point/seg_patches_converted/'+filename[0]  
+    segName = '/home/shared/DARPA/all_patched_data/validation/poly/seg_patches/'+filename[0]  
     
     legend_img = tf.io.read_file(segName) # Read image file
     legend_img = tf.io.decode_png(legend_img)
-    legend_img = tf.cast(legend_img, dtype=tf.float32) / 255.0
     legend_img = tf.image.resize(legend_img, [256, 256])
+    legend_img = legend_img
     
     return map_img, legend_img
 
-train_map_file = os.listdir('/home/shared/DARPA/all_patched_data/training/point/map_patches')
+# img, seg = load_img(('CO_Boulder_1978_Ysp_poly_18_7.png', 'CO_Boulder_1978_Ysp_poly.png'))
+
+train_map_file = os.listdir('/home/shared/DARPA/all_patched_data/training/poly/map_patches')
 random.shuffle(train_map_file)
 train_map_legend_names = [(x, '_'.join(x.split('_')[0:-2])+'.png') for x in train_map_file]
 
 train_dataset = tf.data.Dataset.from_tensor_slices(train_map_legend_names)
 train_dataset = train_dataset.map(load_train_img)
-train_dataset = train_dataset.shuffle(6000, reshuffle_each_iteration=False).batch(64)
+train_dataset = train_dataset.shuffle(5000, reshuffle_each_iteration=False).batch(128)
 
 # A peek of how BatchDataset 
 # it = iter(train_dataset)
 # print(next(it))
-
-validate_map_file = os.listdir('/home/shared/DARPA/all_patched_data/validation/point/map_patches')
+validate_map_file = os.listdir('/home/shared/DARPA/all_patched_data/validation/poly/map_patches')
 validate_map_legend_names = [(x, '_'.join(x.split('_')[0:-2])+'.png') for x in validate_map_file]
 
 validate_dataset = tf.data.Dataset.from_tensor_slices(validate_map_legend_names)
@@ -126,8 +130,8 @@ def EncoderMiniBlock(inputs, n_filters=32, dropout_prob=0.3, max_pooling=True):
     skip_connection = conv
     
     return next_layer, skip_connection
-    
-    def DecoderMiniBlock(prev_layer_input, skip_layer_input, n_filters=32):
+
+def DecoderMiniBlock(prev_layer_input, skip_layer_input, n_filters=32):
     """
     Decoder Block first uses transpose convolution to upscale the image to a bigger size and then,
     merges the result with skip layer results from encoder block
@@ -157,8 +161,8 @@ def EncoderMiniBlock(inputs, n_filters=32, dropout_prob=0.3, max_pooling=True):
                  padding='same',
                  kernel_initializer='HeNormal')(conv)
     return conv
-    
-    def UNetCompiled(input_size=(256, 256, 4), n_filters=32, n_classes=1):
+
+def UNetCompiled(input_size=(256, 256, 6), n_filters=32, n_classes=1):
     """
        Combine both encoder and decoder blocks according to the U-Net research paper
        Return the model as output 
@@ -197,30 +201,30 @@ def EncoderMiniBlock(inputs, n_filters=32, dropout_prob=0.3, max_pooling=True):
     model = tf.keras.Model(inputs=inputs, outputs=conv10)
 
     return model
-    
-    # Call the helper function for defining the layers for the model, given the input image size
+
+# Call the helper function for defining the layers for the model, given the input image size
 unet = UNetCompiled(input_size=(256,256,6), n_filters=16, n_classes=1)
 
 unet.compile(optimizer=tf.keras.optimizers.Adam(), 
-             loss= tf.keras.losses.mae, # tf.keras.losses.binary_crossentropy,  #BinaryFocalCrossentropy(gamma=2.0, from_logits=False), #
+             loss=tf.keras.losses.binary_crossentropy, #SparseCategoricalCrossentropy(from_logits=True),
               metrics=['accuracy', 'acc'])
-              
-callback1 = tf.keras.callbacks.ModelCheckpoint(
-    filepath='./saved_point_model/best_filter_point_model.hdf5', 
-    monitor='loss',
-    verbose=1, 
-    save_best_only=True,
-    save_freq= 100)
-#callback2 = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3) # When to stop? EarlyStopping Callback
 
-# # load weights
-if os.path.exists("./saved_point_model/best_filter_point_model.hdf5"):
-    unet.load_weights("./saved_point_model/best_filter_point_model.hdf5")
+cp_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath='./saved_model/best_train_validation_model_16_filter.hdf5', 
+    monitor='loss',
+    verbose=0, 
+    save_best_only=True,
+    save_freq= 200)
+
+#load weights
+if os.path.exists("./saved_model/saved/saved_best_train_validation_model_16_filter.hdf5"):
+    unet.load_weights("./saved_model/saved/saved_best_train_validation_model_16_filter.hdf5")
 
 # Run the model in a mini-batch fashion and compute the progress for each epoch
-results = unet.fit(train_dataset, epochs=1, callbacks=[callback1], validation_data=validate_dataset)
+results = unet.fit(train_dataset, epochs=5, callbacks=[cp_callback], validation_data=validate_dataset)
 
 # serialize and save the model that you just trained 
-saved_model_path = "./saved_point_model/best_filter_point_model.h5" 
+#saved_model_path = "/home/shirui/DARPA/DARPAMapExtraction/model/saved_model/my_model.h5" 
+saved_model_path = "./saved_model/best_train_validation_model_16_filter.hdf5"
 unet.save(saved_model_path)
 
